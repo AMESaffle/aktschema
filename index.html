@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aktivitetsplan Schema</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1>Aktivitetsplan Schema – Aktivitetskrav – tim</h1>
+  <label class="month">Månad: <select id="month"></select></label>
+</header>
+<div class="bar no-print">
+  <button id="btnLists">⚙ Hantera Akt &amp; Syfte</button>
+  <button id="btnClear" class="ghost">Rensa schema</button>
+  <button id="btnPdf" class="primary">⬇ Exportera PDF</button>
+</div>
+<main>
+  <div class="wrap"><table id="grid"></table></div>
+  <section id="summary"></section>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog" class="dhead">
+    <h2>Hantera Akt &amp; Syfte</h2>
+    <p>Ändringar gäller hela schemat. Byter du namn uppdateras alla rutor där valet används.</p>
+    <button class="primary">Klar</button>
+  </form>
+  <div id="lists" class="cols"></div>
+  <div class="dfoot"><button id="btnReset" class="ghost">Återställ standardlistor</button></div>
+</dialog>
+<script src="script.js"></script>
+</body>
+</html>

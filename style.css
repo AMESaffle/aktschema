@@ -18,7 +18,14 @@ table{width:100%;min-width:900px;border-collapse:collapse;table-layout:fixed}
 th,td{border:1px solid var(--line);padding:6px 8px;vertical-align:top}
 thead th{background:var(--blue);color:#1f3f48;text-align:left;font-size:.95rem}
 tbody th{width:68px;background:#eef6f8;text-align:left;vertical-align:middle;font-size:.85rem}
-td{background:var(--c,#fff)}
+td{background:var(--c,#fff);position:relative;padding-bottom:16px}
+td.cu{border-top-color:var(--c)}td.cd{border-bottom-color:var(--c)}
+td.fill{outline:2px dashed var(--blue-d);outline-offset:-3px;background:#dff1f5}
+.fh{position:absolute;right:3px;bottom:3px;width:14px;height:14px;line-height:13px;text-align:center;font:700 12px/14px sans-serif;font-style:normal;background:var(--blue-d);color:#fff;border-radius:4px;cursor:crosshair;opacity:0;touch-action:none;user-select:none}
+td:hover .fh,.fh:active{opacity:1}
+@media(hover:none){.fh{opacity:.85;width:22px;height:22px;line-height:22px}}
+.cpday{margin-left:6px;padding:0 5px;font-size:.8rem;border-radius:5px;background:#fff8}
+.hint{margin:0;padding:0 24px 12px;font-size:.82rem;opacity:.8}
 td label{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:.8rem}
 td label b{min-width:2.7em}
 td select{flex:1;min-width:0;border:1px solid #0002;border-radius:6px;background:#fffc;padding:3px 4px;font-size:.82rem}
@@ -61,4 +68,8 @@ dialog::backdrop{background:#0006}
   #summary{margin-top:4mm;break-inside:avoid}
   .chips span{border:1px solid #0003;font-size:8.5pt;padding:1px 8px}
   tr{break-inside:avoid}
+  td{height:13mm;padding-bottom:1.6mm}
+  td.cu{border-top-color:var(--c)}td.cd{border-bottom-color:var(--c)}
+  td.cu label{display:none}
+  .fh,.cpday{display:none!important}
 }

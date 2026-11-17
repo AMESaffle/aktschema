@@ -17,7 +17,8 @@ main{padding:0 24px 28px}
 table{width:100%;min-width:900px;border-collapse:collapse;table-layout:fixed}
 th,td{border:1px solid var(--line);padding:6px 8px;vertical-align:top}
 thead th{background:var(--blue);color:#1f3f48;text-align:left;font-size:.95rem}
-tbody th{width:68px;background:#eef6f8;text-align:left;vertical-align:middle;font-size:.85rem}
+thead th:first-child,tbody th{width:64px}
+tbody th{background:#eef6f8;text-align:left;vertical-align:middle;font-size:.85rem}
 td{background:var(--c,#fff);position:relative;padding-bottom:16px}
 td.cu{border-top-color:var(--c)}td.cd{border-bottom-color:var(--c)}
 td.fill{outline:2px dashed var(--blue-d);outline-offset:-3px;background:#dff1f5}
@@ -69,6 +70,7 @@ dialog::backdrop{background:#0006}
   .chips span{border:1px solid #0003;font-size:8.5pt;padding:1px 8px}
   tr{break-inside:avoid}
   td{height:13mm;padding-bottom:1.6mm}
+  thead th:first-child,tbody th{width:15mm}
   td.cu{border-top-color:var(--c)}td.cd{border-bottom-color:var(--c)}
   td.cu label{display:none}
   .fh,.cpday{display:none!important}

@@ -72,6 +72,6 @@ dialog::backdrop{background:#0006}
   td{height:13mm;padding-bottom:1.6mm}
   thead th:first-child,tbody th{width:15mm}
   td.cu{border-top-color:var(--c)}td.cd{border-bottom-color:var(--c)}
-  td.cu label{display:none}
+  td.cu label,td label.e{display:none}
   .fh,.cpday{display:none!important}
 }

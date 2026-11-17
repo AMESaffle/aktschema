@@ -1,3 +1,72 @@
+// ===== PDF (jsPDF, ritar schemat direkt – ingen utskriftsdialog) =====
+function buildPdf(S, DAYS, TIMES) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation: 'landscape', unit: 'mm', format: 'a4'});
+  const M = 10, W = 277, TW = 16, CW = (W - TW) / 5, HH = 8, RH = 17, RR = 6;
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const fill = h => doc.setFillColor(...rgb(h));
+  const same = (d, r1, r2) => { const x = S.cells[d+'-'+r1], y = S.cells[d+'-'+r2]; return !!(x && y && x.a && x.a === y.a && x.s === y.s); };
+  const box = (x, y, w, h, bg, top, bottom) => {
+    if (bg) { fill(bg); doc.rect(x, y, w, h, 'F'); }
+    doc.line(x, y, x, y + h); doc.line(x + w, y, x + w, y + h);
+    if (top) doc.line(x, y, x + w, y);
+    if (bottom) doc.line(x, y + h, x + w, y + h);
+  };
+  doc.setTextColor(64);
+  doc.setFont('helvetica', 'bold').setFontSize(15).text('Aktivitetsplan Schema – Aktivitetskrav – tim', M, M + 5);
+  doc.setFontSize(13).text('Månad: ' + S.month, M + W, M + 5, {align: 'right'});
+  doc.setDrawColor(...rgb('#92cddc')).setLineWidth(0.6).line(M, M + 8, M + W, M + 8);
+
+  let y = M + 12;
+  doc.setLineWidth(0.25).setDrawColor(89);
+  box(M, y, TW, HH, '#92cddc', 1, 1);
+  doc.setFontSize(10).text('TID', M + 2, y + 5.4);
+  DAYS.forEach((d, i) => { box(M + TW + i * CW, y, CW, HH, '#92cddc', 1, 1); doc.text(d, M + TW + i * CW + 2, y + 5.4); });
+  y += HH;
+  TIMES.forEach((t, r) => {
+    if (t === 'RAST') {
+      box(M, y, W, RR, '#e6e9ea', 1, 1); doc.line(M + TW, y, M + TW, y + RR);
+      doc.setFont('helvetica', 'bold').setFontSize(8).text('RAST', M + 2, y + 4.1);
+      y += RR; return;
+    }
+    box(M, y, TW, RH, '#eef6f8', 1, 1);
+    doc.setFont('helvetica', 'bold').setFontSize(9).text(t, M + 2, y + RH / 2 + 1.2);
+    DAYS.forEach((_, d) => {
+      const x = M + TW + d * CW, c = S.cells[d + '-' + r] || {};
+      const a = S.akt.find(q => q.id === c.a), s = S.syf.find(q => q.id === c.s);
+      const cu = r > 0 && TIMES[r-1] !== 'RAST' && same(d, r-1, r);
+      const cd = r < TIMES.length - 1 && TIMES[r+1] !== 'RAST' && same(d, r, r+1);
+      box(x, y, CW, RH, a ? a.c : null, !cu, !cd);
+      if (cu) return;                       // blockets text står bara i första rutan
+      let ty = y + 4.6;
+      [['Akt:', a && a.n], ['Syfte:', s && s.n]].forEach(([lab, txt]) => {
+        if (!txt) return;                   // saknas val → inget skrivs ut
+        doc.setFont('helvetica', 'bold').setFontSize(8.5);
+        const lw = doc.getTextWidth(lab + ' ');
+        doc.text(lab, x + 2, ty);
+        doc.setFont('helvetica', 'normal');
+        doc.splitTextToSize(txt, CW - 4 - lw).forEach(line => { doc.text(line, x + 2 + lw, ty); ty += 3.9; });
+      });
+    });
+    y += RH;
+  });
+
+  const n = {}; let tot = 0;
+  Object.values(S.cells).forEach(c => { const a = S.akt.find(q => q.id === c.a); if (a && a.n.trim() !== '-') { n[a.id] = (n[a.id] || 0) + 1; tot++; } });
+  y += 7;
+  doc.setFont('helvetica', 'bold').setFontSize(10).text('Totalt ' + tot + ' tim per vecka', M, y);
+  y += 3.5; let x = M;
+  doc.setFont('helvetica', 'normal').setFontSize(8.5);
+  S.akt.filter(a => n[a.id]).forEach(a => {
+    const label = a.n + '  ' + n[a.id] + ' tim', w = doc.getTextWidth(label) + 6;
+    if (x + w > M + W) { x = M; y += 7; }
+    fill(a.c); doc.roundedRect(x, y, w, 5.6, 2.8, 2.8, 'F');
+    doc.text(label, x + 3, y + 3.9); x += w + 2;
+  });
+  return doc;
+}
+// ===== /PDF =====
+
 (() => {
 const KEY = 'aktivitetsplan-schema-v1';
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
@@ -43,8 +112,8 @@ function renderGrid() {
       const cu = r > 0 && TIMES[r-1] !== 'RAST' && same(d, r-1, r);
       const cd = r < TIMES.length - 1 && TIMES[r+1] !== 'RAST' && same(d, r, r+1);
       h += `<td data-k="${k}" class="${cu ? 'cu ' : ''}${cd ? 'cd' : ''}"${a ? ` style="--c:${a.c}"` : ''}>
-        <label><b>Akt:</b><select data-f="a">${opts(S.akt, c.a, 'Välj aktivitet')}</select><span class="pv">${a ? esc(a.n) : ''}</span></label>
-        <label><b>Syfte:</b><select data-f="s">${opts(S.syf, c.s, 'Välj syfte')}</select><span class="pv">${s ? esc(s.n) : ''}</span></label>${c.a || c.s ? '<i class="fh" title="Dra nedåt eller åt höger för att förlänga. Klicka = +1 timme">+</i>' : ''}</td>`;
+        <label${a ? '' : ' class="e"'}><b>Akt:</b><select data-f="a">${opts(S.akt, c.a, 'Välj aktivitet')}</select><span class="pv">${a ? esc(a.n) : ''}</span></label>
+        <label${s ? '' : ' class="e"'}><b>Syfte:</b><select data-f="s">${opts(S.syf, c.s, 'Välj syfte')}</select><span class="pv">${s ? esc(s.n) : ''}</span></label>${c.a || c.s ? '<i class="fh" title="Dra nedåt eller åt höger för att förlänga. Klicka = +1 timme">+</i>' : ''}</td>`;
     });
     h += '</tr>';
   });
@@ -166,6 +235,10 @@ $('btnReset').onclick = () => {
 };
 $('btnClear').onclick = () => { if (confirm('Rensa hela schemat?')) { S.cells = {}; save(); renderGrid(); } };
 $('btnPdf').onclick = () => {
+  if (!window.jspdf) { alert('Filen jspdf.umd.min.js saknas i mappen – öppnar utskrift i stället.'); window.print(); return; }
+  buildPdf(S, DAYS, TIMES).save('Aktivitetsplan ' + S.month + '.pdf');
+};
+$('btnPrint').onclick = () => {
   const old = document.title; document.title = 'Aktivitetsplan ' + S.month;
   window.print(); document.title = old;
 };

@@ -14,6 +14,7 @@
 <div class="bar no-print">
   <button id="btnLists">⚙ Hantera Akt &amp; Syfte</button>
   <button id="btnClear" class="ghost">Rensa schema</button>
+  <button id="btnPrint" class="ghost">🖨 Skriv ut</button>
   <button id="btnPdf" class="primary">⬇ Exportera PDF</button>
 </div>
 <p class="hint no-print">Tips: dra i <b>+</b> nere till höger i en ruta för att förlänga aktiviteten nedåt (fler timmar) eller åt höger (fler dagar). Ett klick på <b>+</b> förlänger med en timme. <b>⧉</b> vid dagens namn kopierar hela dagen till övriga dagar.</p>
@@ -31,6 +32,7 @@
   <div id="lists" class="cols"></div>
   <div class="dfoot"><button id="btnReset" class="ghost">Återställ standardlistor</button></div>
 </dialog>
+<script src="jspdf.umd.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

@@ -14,7 +14,7 @@ function buildPdf(S, DAYS, TIMES) {
   };
   doc.setTextColor(64);
   doc.setFont('helvetica', 'bold').setFontSize(15).text('Aktivitetsplan Schema – Aktivitetskrav – tim', M, M + 5);
-  doc.setFontSize(13).text('Månad: ' + S.month, M + W, M + 5, {align: 'right'});
+  doc.setFontSize(13).text((S.kund ? 'Kundnummer: ' + S.kund + '     ' : '') + 'Månad: ' + S.month + ' ' + S.year, M + W, M + 5, {align: 'right'});
   doc.setDrawColor(...rgb('#92cddc')).setLineWidth(0.6).line(M, M + 8, M + W, M + 8);
 
   let y = M + 12;
@@ -83,19 +83,26 @@ const defSyf = () => SYF0.map((n,i) => ({id:'s'+i, n}));
 
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-if (!S || !S.akt || !S.syf) S = {month:'Nov', akt:defAkt(), syf:defSyf(), cells:{}};
+if (!S || !S.akt || !S.syf) S = {month: MONTHS[new Date().getMonth()], akt: defAkt(), syf: defSyf()};
+// Datamodell: draft = utkast utan kundnummer, sched = sparade scheman per kundnummer+år+månad
+S.draft = S.draft || S.cells || {}; delete S.cells;
+S.sched = S.sched || {}; S.kund = S.kund || ''; S.year = S.year || new Date().getFullYear();
+if (!S.cur || !S.sched[S.cur]) S.cur = null;
+Object.defineProperty(S, 'cells', {get: () => S.cur ? S.sched[S.cur].cells : S.draft});   // aktuellt schema
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
 // Ta bort val som pekar på listposter som inte längre finns
+const allCells = () => [S.draft, ...Object.values(S.sched).map(v => v.cells)];
+const isEmpty = cs => !Object.values(cs).some(c => c.a || c.s);
 function clean() {
-  Object.values(S.cells).forEach(c => {
+  allCells().forEach(cs => Object.values(cs).forEach(c => {
     if (c.a && !S.akt.some(x => x.id === c.a)) delete c.a;
     if (c.s && !S.syf.some(x => x.id === c.s)) delete c.s;
-  });
+  }));
 }
 
 const opts = (list, sel, ph) => `<option value="">${ph}</option>` +
-  list.map(x => `<option value="${x.id}"${x.id === sel ? ' selected' : ''}>${esc(x.n)}</option>`).join('');
+  list.map(x => `<option value="${esc(x.id)}"${x.id === sel ? ' selected' : ''}>${esc(x.n)}</option>`).join('');
 
 // Samma aktivitet + syfte i två rutor ovanpå varandra = ett sammanhängande block
 const same = (d, r1, r2) => { const x = S.cells[d+'-'+r1], y = S.cells[d+'-'+r2]; return !!(x && y && x.a && x.a === y.a && x.s === y.s); };
@@ -220,8 +227,8 @@ $('lists').addEventListener('click', e => {
   if (b.dataset.act === 'up') [list[i-1], list[i]] = [list[i], list[i-1]];
   if (b.dataset.act === 'down') [list[i+1], list[i]] = [list[i], list[i+1]];
   if (b.dataset.act === 'del') {
-    const used = Object.values(S.cells).filter(c => c[f] === list[i].id).length;
-    if (used && !confirm(`"${list[i].n}" används i ${used} ruta(or). Ta bort ändå? Rutorna blir tomma.`)) return;
+    const used = allCells().reduce((n, cs) => n + Object.values(cs).filter(c => c[f] === list[i].id).length, 0);
+    if (used && !confirm(`"${list[i].n}" används i ${used} ruta(or), även i sparade scheman. Ta bort ändå? Rutorna blir tomma.`)) return;
     list.splice(i, 1); clean();
   }
   save(); renderLists(); renderGrid();
@@ -233,17 +240,94 @@ $('btnReset').onclick = () => {
   if (!confirm('Återställ Akt och Syfte till standardlistorna? Egna tillägg tas bort.')) return;
   S.akt = defAkt(); S.syf = defSyf(); clean(); save(); renderLists(); renderGrid();
 };
-$('btnClear').onclick = () => { if (confirm('Rensa hela schemat?')) { S.cells = {}; save(); renderGrid(); } };
+$('btnClear').onclick = () => { if (confirm('Rensa hela schemat?')) { Object.keys(S.cells).forEach(k => delete S.cells[k]); save(); renderGrid(); } };
+const fileName = () => ['Aktivitetsplan', S.kund, S.month, S.year].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]/g, '');
 $('btnPdf').onclick = () => {
   if (!window.jspdf) { alert('Filen jspdf.umd.min.js saknas i mappen – öppnar utskrift i stället.'); window.print(); return; }
-  buildPdf(S, DAYS, TIMES).save('Aktivitetsplan ' + S.month + '.pdf');
+  buildPdf(S, DAYS, TIMES).save(fileName() + '.pdf');
 };
 $('btnPrint').onclick = () => {
-  const old = document.title; document.title = 'Aktivitetsplan ' + S.month;
+  const old = document.title; document.title = fileName();
   window.print(); document.title = old;
 };
 
-$('month').innerHTML = MONTHS.map(m => `<option${m === S.month ? ' selected' : ''}>${m}</option>`).join('');
-$('month').onchange = e => { S.month = e.target.value; save(); };
-renderGrid();
+// ----- Deltagare: scheman sparas per kundnummer + år + månad -----
+const keyOf = (k, y, m) => k + '|' + y + '|' + m;
+const hoursOf = cs => Object.values(cs).filter(c => { const a = S.akt.find(x => x.id === c.a); return a && a.n.trim() !== '-'; }).length;
+const history = kund => Object.entries(S.sched).filter(([, v]) => v.kund === kund)
+  .sort((a, b) => (b[1].y - a[1].y) || (MONTHS.indexOf(b[1].m) - MONTHS.indexOf(a[1].m)));
+
+// Öppnar (eller skapar) schemat för kundnummer/år/månad i fälten. Ett utkast utan kundnummer
+// följer med in i nya schemat; ett redan sparat schema kopieras aldrig till en annan deltagare.
+function openSchedule() {
+  const kund = S.kund.trim(), wasDraft = !S.cur;
+  S.kund = kund;
+  if (S.cur && isEmpty(S.cells)) delete S.sched[S.cur];     // släng tomma scheman man bara tittat på
+  S.cur = null;
+  if (kund) {
+    const key = keyOf(kund, S.year, S.month);
+    if (!S.sched[key]) { S.sched[key] = {kund, y: S.year, m: S.month, cells: wasDraft ? S.draft : {}}; if (wasDraft) S.draft = {}; }
+    S.cur = key;
+  }
+  save(); renderAll();
+}
+function renderBar() {
+  $('kund').value = S.kund; $('year').value = S.year; $('month').value = S.month;
+  $('kunder').innerHTML = [...new Set(Object.values(S.sched).map(v => v.kund))].sort().map(k => `<option value="${esc(k)}">`).join('');
+  const list = S.kund ? history(S.kund) : [];
+  $('hist').innerHTML = `<option value="">${list.length ? 'Tidigare scheman (' + list.length + ')' : 'Inga sparade scheman'}</option>` +
+    list.map(([k, v]) => `<option value="${esc(k)}"${k === S.cur ? ' selected' : ''}>${v.m} ${v.y} · ${hoursOf(v.cells)} tim</option>`).join('');
+  $('hist').disabled = !list.length;
+  $('status').textContent = S.cur ? 'Sparas automatiskt för kundnummer ' + S.kund : 'Utkast – ange kundnummer för att spara schemat';
+  document.body.classList.toggle('nokund', !S.kund);
+}
+function renderAll() { renderBar(); renderGrid(); }
+
+$('kund').onchange = e => { S.kund = e.target.value; openSchedule(); };
+$('month').onchange = e => { S.month = e.target.value; openSchedule(); };
+$('year').onchange = e => { S.year = Math.min(2100, Math.max(2000, parseInt(e.target.value) || new Date().getFullYear())); openSchedule(); };
+$('hist').onchange = e => { const v = S.sched[e.target.value]; if (!v) return; S.kund = v.kund; S.year = v.y; S.month = v.m; openSchedule(); };
+$('btnNext').onclick = () => {
+  if (!S.cur) { alert('Ange kundnummer först – då sparas schemat och kan kopieras till nästa månad.'); return; }
+  const src = S.sched[S.cur]; let mi = MONTHS.indexOf(src.m) + 1, y = src.y;
+  if (mi > 11) { mi = 0; y++; }
+  const key = keyOf(src.kund, y, MONTHS[mi]);
+  if (S.sched[key]) { if (!confirm(`${MONTHS[mi]} ${y} finns redan för ${src.kund}. Öppna det schemat?`)) return; }
+  else S.sched[key] = {kund: src.kund, y, m: MONTHS[mi], cells: JSON.parse(JSON.stringify(src.cells))};
+  S.year = y; S.month = MONTHS[mi]; openSchedule();
+};
+$('btnDel').onclick = () => {
+  if (!S.cur) { alert('Det finns inget sparat schema att ta bort.'); return; }
+  const v = S.sched[S.cur];
+  if (!confirm(`Ta bort det sparade schemat för kundnummer ${v.kund}, ${v.m} ${v.y}?`)) return;
+  delete S.sched[S.cur]; S.cur = null; S.kund = ''; save(); renderAll();
+};
+
+// ----- Backup av Akt- och Syfte-listor -----
+$('btnBackup').onclick = () => {
+  const data = {typ: 'aktivitetsplan-listor', version: 1, sparad: new Date().toISOString(), akt: S.akt, syf: S.syf};
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}));
+  a.download = 'Aktivitetsplan listor ' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('btnRestore').onclick = () => $('fileRestore').click();
+$('fileRestore').onchange = e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      const ok = (l, col) => Array.isArray(l) && l.length && l.every(x => x && /^[\w-]{1,40}$/.test(x.id) && typeof x.n === 'string' && (!col || /^#[0-9a-f]{6}$/i.test(x.c)));
+      if (d.typ !== 'aktivitetsplan-listor' || !ok(d.akt, true) || !ok(d.syf, false)) throw new Error('format');
+      if (!confirm(`Läs in backup med ${d.akt.length} aktiviteter och ${d.syf.length} syften? Nuvarande listor ersätts, och val som saknas i backupen tas bort ur scheman.`)) return;
+      S.akt = d.akt.map(x => ({id: x.id, n: x.n, c: x.c})); S.syf = d.syf.map(x => ({id: x.id, n: x.n}));
+      clean(); save(); renderLists(); renderAll();
+    } catch (err) { alert('Filen verkar inte vara en backup av Akt/Syfte-listor.'); }
+  };
+  r.readAsText(f);
+};
+
+$('month').innerHTML = MONTHS.map(m => `<option>${m}</option>`).join('');
+renderAll();
 })();

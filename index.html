@@ -9,8 +9,19 @@
 <body>
 <header class="top">
   <h1>Aktivitetsplan Schema – Aktivitetskrav – tim</h1>
-  <label class="month">Månad: <select id="month"></select></label>
+  <div class="meta">
+    <label class="kundlbl">Kundnummer: <input id="kund" list="kunder" autocomplete="off"></label>
+    <label>Månad: <select id="month"></select></label>
+    <label>År: <input id="year" type="number" min="2000" max="2100"></label>
+  </div>
+  <datalist id="kunder"></datalist>
 </header>
+<div class="bar sched no-print">
+  <select id="hist" title="Tidigare scheman för kundnumret"></select>
+  <button id="btnNext">➕ Nytt schema nästa månad</button>
+  <button id="btnDel" class="ghost">🗑 Ta bort schema</button>
+  <span id="status" class="status"></span>
+</div>
 <div class="bar no-print">
   <button id="btnLists">⚙ Hantera Akt &amp; Syfte</button>
   <button id="btnClear" class="ghost">Rensa schema</button>
@@ -30,7 +41,12 @@
     <button class="primary">Klar</button>
   </form>
   <div id="lists" class="cols"></div>
-  <div class="dfoot"><button id="btnReset" class="ghost">Återställ standardlistor</button></div>
+  <div class="dfoot">
+    <button id="btnBackup">⬇ Spara backup av listor</button>
+    <button id="btnRestore">⬆ Läs in backup</button>
+    <button id="btnReset" class="ghost">Återställ standardlistor</button>
+    <input type="file" id="fileRestore" accept=".json,application/json" hidden>
+  </div>
 </dialog>
 <script src="jspdf.umd.min.js"></script>
 <script src="script.js"></script>

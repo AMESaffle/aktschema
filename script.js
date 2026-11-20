@@ -2,7 +2,7 @@
 function buildPdf(S, DAYS, TIMES) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({orientation: 'landscape', unit: 'mm', format: 'a4'});
-  const M = 10, W = 277, TW = 16, CW = (W - TW) / 5, HH = 8, RH = 17, RR = 6;
+  const M = 10, W = 277, TW = 16, CW = (W - TW) / 5, HH = 8, RH = 17;
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const fill = h => doc.setFillColor(...rgb(h));
   const same = (d, r1, r2) => { const x = S.cells[d+'-'+r1], y = S.cells[d+'-'+r2]; return !!(x && y && x.a && x.a === y.a && x.s === y.s); };
@@ -24,18 +24,13 @@ function buildPdf(S, DAYS, TIMES) {
   DAYS.forEach((d, i) => { box(M + TW + i * CW, y, CW, HH, '#92cddc', 1, 1); doc.text(d, M + TW + i * CW + 2, y + 5.4); });
   y += HH;
   TIMES.forEach((t, r) => {
-    if (t === 'RAST') {
-      box(M, y, W, RR, '#e6e9ea', 1, 1); doc.line(M + TW, y, M + TW, y + RR);
-      doc.setFont('helvetica', 'bold').setFontSize(8).text('RAST', M + 2, y + 4.1);
-      y += RR; return;
-    }
     box(M, y, TW, RH, '#eef6f8', 1, 1);
     doc.setFont('helvetica', 'bold').setFontSize(9).text(t, M + 2, y + RH / 2 + 1.2);
     DAYS.forEach((_, d) => {
       const x = M + TW + d * CW, c = S.cells[d + '-' + r] || {};
       const a = S.akt.find(q => q.id === c.a), s = S.syf.find(q => q.id === c.s);
-      const cu = r > 0 && TIMES[r-1] !== 'RAST' && same(d, r-1, r);
-      const cd = r < TIMES.length - 1 && TIMES[r+1] !== 'RAST' && same(d, r, r+1);
+      const cu = r > 0 && same(d, r-1, r);
+      const cd = r < TIMES.length - 1 && same(d, r, r+1);
       box(x, y, CW, RH, a ? a.c : null, !cu, !cd);
       if (cu) return;                       // blockets text står bara i första rutan
       let ty = y + 4.6;
@@ -70,7 +65,7 @@ function buildPdf(S, DAYS, TIMES) {
 (() => {
 const KEY = 'aktivitetsplan-schema-v1';
 const DAYS = ['Måndag','Tisdag','Onsdag','Torsdag','Fredag'];
-const TIMES = ['08.00','09.00','10.00','11.00','RAST','13.00','14.00','15.00'];
+const TIMES = ['08.00','09.00','10.00','11.00','12.00','13.00','14.00','15.00'];
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 const PAL = ['#cfe8f3','#d9ecc8','#fde5b8','#f6d0d8','#e3d6f0','#c9eadf','#fbd9c4','#d6e0f5','#eee6b8','#f3d3ea','#cde7ea','#e4e4e4','#f7e0a8','#d3efd0','#eeeeee'];
 const AKT0 = ['Coachning enskilt','Jobsökargrupp','Arbetsmarknadskunskap','Miljöstationer','Utegrupp','Praktik Kommun','Praktisk verks. AME','Praktik Privat','Skaparverkstad','Språkgrupp','Utbildning deltid','Studiebeöksgr.','Eget jobbsökande','7-Tjugo','-'];
@@ -111,13 +106,12 @@ function renderGrid() {
   let h = '<thead><tr><th>TID</th>' + DAYS.map((d, i) =>
     `<th>${d}<button class="cpday" data-day="${i}" title="Kopiera ${d} till alla andra dagar">⧉</button></th>`).join('') + '</tr></thead><tbody>';
   TIMES.forEach((t, r) => {
-    if (t === 'RAST') { h += '<tr class="rast"><th>RAST</th><td colspan="5"></td></tr>'; return; }
     h += `<tr><th>${t}</th>`;
     DAYS.forEach((_, d) => {
       const k = d + '-' + r, c = S.cells[k] || {};
       const a = S.akt.find(x => x.id === c.a), s = S.syf.find(x => x.id === c.s);
-      const cu = r > 0 && TIMES[r-1] !== 'RAST' && same(d, r-1, r);
-      const cd = r < TIMES.length - 1 && TIMES[r+1] !== 'RAST' && same(d, r, r+1);
+      const cu = r > 0 && same(d, r-1, r);
+      const cd = r < TIMES.length - 1 && same(d, r, r+1);
       h += `<td data-k="${k}" class="${cu ? 'cu ' : ''}${cd ? 'cd' : ''}"${a ? ` style="--c:${a.c}"` : ''}>
         <label${a ? '' : ' class="e"'}><b>Akt:</b><select data-f="a">${opts(S.akt, c.a, 'Välj aktivitet')}</select><span class="pv">${a ? esc(a.n) : ''}</span></label>
         <label${s ? '' : ' class="e"'}><b>Syfte:</b><select data-f="s">${opts(S.syf, c.s, 'Välj syfte')}</select><span class="pv">${s ? esc(s.n) : ''}</span></label>${c.a || c.s ? '<i class="fh" title="Dra nedåt eller åt höger för att förlänga. Klicka = +1 timme">+</i>' : ''}</td>`;
@@ -164,7 +158,7 @@ function fillKeys(d, r, td) {
   if (!td) return out;
   const [d2, r2] = parse(td.dataset.k);
   if (Math.abs(d2 - d) > Math.abs(r2 - r)) { for (let i = d + 1; i <= d2; i++) out.push(i + '-' + r); }
-  else { for (let i = r + 1; i <= r2; i++) if (TIMES[i] !== 'RAST') out.push(d + '-' + i); }
+  else { for (let i = r + 1; i <= r2; i++) out.push(d + '-' + i); }
   return out;
 }
 function mark(keys) {
@@ -188,7 +182,7 @@ $('grid').addEventListener('pointermove', e => {
 $('grid').addEventListener('pointerup', e => {
   if (!drag) return;
   let keys = drag.keys;
-  if (!drag.moved) { let n = drag.r + 1; if (TIMES[n] === 'RAST') n++; keys = n < TIMES.length ? [drag.d + '-' + n] : []; }
+  if (!drag.moved) { const n = drag.r + 1; keys = n < TIMES.length ? [drag.d + '-' + n] : []; }
   const src = S.cells[drag.d + '-' + drag.r] || {};
   keys.forEach(k => { S.cells[k] = {}; if (src.a) S.cells[k].a = src.a; if (src.s) S.cells[k].s = src.s; });
   drag = null; mark([]); save(); renderGrid();
